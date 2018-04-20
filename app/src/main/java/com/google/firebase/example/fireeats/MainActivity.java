@@ -17,9 +17,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.crashlytics.android.Crashlytics;
 import com.firebase.ui.auth.AuthUI;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.analytics.FirebaseAnalytics;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.example.fireeats.adapter.RestaurantAdapter;
 import com.google.firebase.example.fireeats.model.Rating;
@@ -40,6 +42,8 @@ import java.util.List;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
+
+import static com.crashlytics.android.Crashlytics.setUserIdentifier;
 
 public class MainActivity extends AppCompatActivity implements
         FilterDialogFragment.FilterListener,
@@ -74,12 +78,17 @@ public class MainActivity extends AppCompatActivity implements
 
     private MainActivityViewModel mViewModel;
 
+    private FirebaseAnalytics mFirebaseAnalytics;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
         setSupportActionBar(mToolbar);
+
+
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
         // View model
         mViewModel = ViewModelProviders.of(this).get(MainActivityViewModel.class);
@@ -117,11 +126,13 @@ public class MainActivity extends AppCompatActivity implements
             }
         };
 
+
         mRestaurantsRecycler.setLayoutManager(new LinearLayoutManager(this));
         mRestaurantsRecycler.setAdapter(mAdapter);
 
         // Filter Dialog
         mFilterDialog = new FilterDialogFragment();
+
     }
 
     @Override
@@ -170,6 +181,13 @@ public class MainActivity extends AppCompatActivity implements
             case R.id.menu_delete:
                 RestaurantUtil.deleteAll();
                 break;
+            case R.id.menu_crash:
+                onCrashClicked();
+                break;
+            case R.id.menu_crash_2:
+                IllegalArgumentException iae = new IllegalArgumentException("Test Crash");
+                Crashlytics.logException(iae);
+                throw iae;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -204,6 +222,11 @@ public class MainActivity extends AppCompatActivity implements
         // Go to the details page for the selected restaurant
         Intent intent = new Intent(this, RestaurantDetailActivity.class);
         intent.putExtra(RestaurantDetailActivity.KEY_RESTAURANT_ID, restaurant.getId());
+        Crashlytics.log("Getting restaurant details");
+
+        Bundle bundle = new Bundle();
+        bundle.putString("full_text", "Get Restaurant Detail");
+        mFirebaseAnalytics.logEvent("restaurant_detail", bundle);
 
         startActivity(intent);
         overridePendingTransition(R.anim.slide_in_from_right, R.anim.slide_out_to_left);
@@ -246,6 +269,7 @@ public class MainActivity extends AppCompatActivity implements
 
         // Save filters
         mViewModel.setFilters(filters);
+
     }
 
     private boolean shouldStartSignIn() {
@@ -262,6 +286,8 @@ public class MainActivity extends AppCompatActivity implements
 
         startActivityForResult(intent, RC_SIGN_IN);
         mViewModel.setIsSigningIn(true);
+        //System.out.println(FirebaseAuth.getInstance().getCurrentUser().toString());
+        Crashlytics.setUserIdentifier("1234567890-kh");
     }
 
     private void onAddItemsClicked() {
@@ -294,5 +320,9 @@ public class MainActivity extends AppCompatActivity implements
                 }
             }
         });
+    }
+
+    private void onCrashClicked() {
+        Crashlytics.getInstance().crash();
     }
 }

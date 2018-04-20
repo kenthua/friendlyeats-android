@@ -15,9 +15,11 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
+import com.crashlytics.android.Crashlytics;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.analytics.FirebaseAnalytics;
 import com.google.firebase.example.fireeats.adapter.RatingAdapter;
 import com.google.firebase.example.fireeats.model.Rating;
 import com.google.firebase.example.fireeats.model.Restaurant;
@@ -36,10 +38,13 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 import me.zhanghai.android.materialratingbar.MaterialRatingBar;
 
+
+
 public class RestaurantDetailActivity extends AppCompatActivity
         implements EventListener<DocumentSnapshot>, RatingDialogFragment.RatingListener {
 
     private static final String TAG = "RestaurantDetail";
+    private FirebaseAnalytics mFirebaseAnalytics;
 
     public static final String KEY_RESTAURANT_ID = "key_restaurant_id";
 
@@ -84,8 +89,11 @@ public class RestaurantDetailActivity extends AppCompatActivity
         setContentView(R.layout.activity_restaurant_detail);
         ButterKnife.bind(this);
 
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
+
         // Get restaurant ID from extras
         String restaurantId = getIntent().getExtras().getString(KEY_RESTAURANT_ID);
+
         if (restaurantId == null) {
             throw new IllegalArgumentException("Must pass extra " + KEY_RESTAURANT_ID);
         }
@@ -168,6 +176,8 @@ public class RestaurantDetailActivity extends AppCompatActivity
         mCategoryView.setText(restaurant.getCategory());
         mPriceView.setText(RestaurantUtil.getPriceString(restaurant));
 
+        Crashlytics.log("Loading Restaurant Detail");
+
         // Background image
         Glide.with(mImageView.getContext())
                 .load(restaurant.getPhoto())
@@ -192,6 +202,11 @@ public class RestaurantDetailActivity extends AppCompatActivity
                     @Override
                     public void onSuccess(Void aVoid) {
                         Log.d(TAG, "Rating added");
+                        Crashlytics.log("Added Restaurant Rating");
+
+                        Bundle bundle = new Bundle();
+                        bundle.putString("full_text", "Added Restaurant Rating");
+                        mFirebaseAnalytics.logEvent("restaurant_rating_add", bundle);
 
                         // Hide keyboard and scroll to top
                         hideKeyboard();
@@ -202,7 +217,7 @@ public class RestaurantDetailActivity extends AppCompatActivity
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         Log.w(TAG, "Add rating failed", e);
-
+                        Crashlytics.log("Add rating failed");
                         // Show failure message and hide keyboard
                         hideKeyboard();
                         Snackbar.make(findViewById(android.R.id.content), "Failed to add rating",
@@ -214,6 +229,11 @@ public class RestaurantDetailActivity extends AppCompatActivity
     private Task<Void> addRating(final DocumentReference restaurantRef, final Rating rating) {
         // Create reference for new rating, for use inside the transaction
         final DocumentReference ratingRef = restaurantRef.collection("ratings").document();
+
+        Bundle bundle = new Bundle();
+        bundle.putString("full_text", "Adding Restaurant Rating");
+        mFirebaseAnalytics.logEvent("restaurant_rating", bundle);
+
 
         // In a transaction, add the new rating and update the aggregate totals
         return mFirestore.runTransaction(new Transaction.Function<Void>() {
@@ -239,6 +259,8 @@ public class RestaurantDetailActivity extends AppCompatActivity
                 return null;
             }
         });
+
+
     }
 
     private void hideKeyboard() {
