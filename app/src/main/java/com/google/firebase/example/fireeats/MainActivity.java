@@ -16,6 +16,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.crashlytics.android.Crashlytics;
 import com.firebase.ui.auth.AuthUI;
@@ -35,6 +36,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.WriteBatch;
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings;
 
 import java.util.Collections;
 import java.util.List;
@@ -42,7 +45,9 @@ import java.util.List;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
+import io.fabric.sdk.android.services.common.Crash;
 
+import static com.crashlytics.android.Crashlytics.log;
 import static com.crashlytics.android.Crashlytics.setUserIdentifier;
 
 public class MainActivity extends AppCompatActivity implements
@@ -54,6 +59,8 @@ public class MainActivity extends AppCompatActivity implements
     private static final int RC_SIGN_IN = 9001;
 
     private static final int LIMIT = 50;
+
+    private static final String SHOW_CRASH_EXPERIMENT_KEY = "show_crash_experiment";
 
     @BindView(R.id.toolbar)
     Toolbar mToolbar;
@@ -80,15 +87,18 @@ public class MainActivity extends AppCompatActivity implements
 
     private FirebaseAnalytics mFirebaseAnalytics;
 
+    private FirebaseRemoteConfig mFirebaseRemoteConfig;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
+
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
         setSupportActionBar(mToolbar);
-
-
-        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
         // View model
         mViewModel = ViewModelProviders.of(this).get(MainActivityViewModel.class);
@@ -145,6 +155,14 @@ public class MainActivity extends AppCompatActivity implements
             return;
         }
 
+        //System.out.println(FirebaseAuth.getInstance().getCurrentUser().toString());
+        String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+
+        Crashlytics.setUserEmail(email);
+        Crashlytics.setUserIdentifier(uid);
+        mFirebaseAnalytics.setUserId(uid);
+
         // Apply filters
         onFilter(mViewModel.getFilters());
 
@@ -164,7 +182,47 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main, menu);
+        boolean crashExperiment = false;
+
+        mFirebaseRemoteConfig = FirebaseRemoteConfig.getInstance();
+        FirebaseRemoteConfigSettings configSettings = new FirebaseRemoteConfigSettings.Builder()
+                .setDeveloperModeEnabled(BuildConfig.DEBUG)
+                .build();
+        mFirebaseRemoteConfig.setConfigSettings(configSettings);
+
+        mFirebaseRemoteConfig.setDefaults(R.xml.remote_config_defaults);
+
+        long cacheExpiration = 3600; // 1 hour in seconds.
+        // If your app is using developer mode, cacheExpiration is set to 0, so each fetch will
+        // retrieve values from the service.
+        if (mFirebaseRemoteConfig.getInfo().getConfigSettings().isDeveloperModeEnabled()) {
+            cacheExpiration = 0;
+        }
+
+        mFirebaseRemoteConfig.fetch(cacheExpiration)
+                .addOnCompleteListener(this, new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        if (task.isSuccessful()) {
+                            Crashlytics.log("Remote config loaded");
+                            // After config data is successfully fetched, it must be activated before newly fetched
+                            // values are returned.
+                            mFirebaseRemoteConfig.activateFetched();
+                        } else {
+                            Crashlytics.log("Remote config not loaded");
+                        }
+                    }
+                });
+
+        log("##### " + SHOW_CRASH_EXPERIMENT_KEY + ": " + mFirebaseRemoteConfig.getBoolean(SHOW_CRASH_EXPERIMENT_KEY));
+        Log.i(TAG, "##### " + SHOW_CRASH_EXPERIMENT_KEY + ": " + mFirebaseRemoteConfig.getBoolean(SHOW_CRASH_EXPERIMENT_KEY));
+        crashExperiment = mFirebaseRemoteConfig.getBoolean(SHOW_CRASH_EXPERIMENT_KEY);
+        if(!crashExperiment)
+            getMenuInflater().inflate(R.menu.menu_main, menu);
+        else {
+            getMenuInflater().inflate(R.menu.menu_main_experiment, menu);
+        }
+
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -286,8 +344,6 @@ public class MainActivity extends AppCompatActivity implements
 
         startActivityForResult(intent, RC_SIGN_IN);
         mViewModel.setIsSigningIn(true);
-        //System.out.println(FirebaseAuth.getInstance().getCurrentUser().toString());
-        Crashlytics.setUserIdentifier("1234567890-kh");
     }
 
     private void onAddItemsClicked() {
