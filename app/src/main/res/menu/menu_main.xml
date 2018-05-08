@@ -18,8 +18,4 @@
         android:id="@+id/menu_crash"
         android:title="Gen Crash" />
 
-    <item
-        android:id="@+id/menu_crash_2"
-        android:title="Gen Crash 2" />
-
 </menu>
