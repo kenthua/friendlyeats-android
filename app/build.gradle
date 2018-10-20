@@ -27,6 +27,18 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+
+    flavorDimensions "all"
+
+    productFlavors {
+        mainFlavor {
+            dimension "all"
+
+            // TODO(developer): Replace this with your Dynamic Links domain
+            //                  See: https://firebase.google.com/docs/dynamic-links/android/create#set-up-firebase-and-the-dynamic-links-sdk
+            resValue "string", "dynamic_links_domain", "m7gzh.app.goo.gl"
+        }
+    }
 }
 
 dependencies {
@@ -35,7 +47,7 @@ dependencies {
     compile 'com.google.firebase:firebase-config:15.0.0'
 
     implementation 'com.google.firebase:firebase-messaging:17.0.0'
-
+    implementation 'com.google.firebase:firebase-dynamic-links:15.0.2'
     // Firestore
     compile "com.google.firebase:firebase-firestore:15.0.0"
 

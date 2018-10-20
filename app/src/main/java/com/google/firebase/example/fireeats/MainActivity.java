@@ -2,9 +2,12 @@ package com.google.firebase.example.fireeats;
 
 import android.arch.lifecycle.ViewModelProviders;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.annotation.VisibleForTesting;
 import android.support.design.widget.Snackbar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -17,13 +20,19 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.support.v7.app.AlertDialog;
 
 import com.crashlytics.android.Crashlytics;
 import com.firebase.ui.auth.AuthUI;
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.analytics.FirebaseAnalytics;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.dynamiclinks.DynamicLink;
+import com.google.firebase.dynamiclinks.FirebaseDynamicLinks;
+import com.google.firebase.dynamiclinks.PendingDynamicLinkData;
 import com.google.firebase.example.fireeats.adapter.RestaurantAdapter;
 import com.google.firebase.example.fireeats.model.Rating;
 import com.google.firebase.example.fireeats.model.Restaurant;
@@ -89,6 +98,9 @@ public class MainActivity extends AppCompatActivity implements
 
     private FirebaseRemoteConfig mFirebaseRemoteConfig;
 
+    private static final String DEEP_LINK_URL = "https://example.com/deeplinks";
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -142,6 +154,53 @@ public class MainActivity extends AppCompatActivity implements
 
         // Filter Dialog
         mFilterDialog = new FilterDialogFragment();
+
+
+        // Build Dynamic Link
+        validateAppCode();
+        final Uri deepLink = buildDeepLink(Uri.parse(DEEP_LINK_URL), 0);
+        Log.i(TAG, "#### 1st #### " + deepLink.toString());
+
+        FirebaseDynamicLinks.getInstance()
+                .getDynamicLink(getIntent())
+                .addOnSuccessListener(this, new OnSuccessListener<PendingDynamicLinkData>() {
+                    @Override
+                    public void onSuccess(PendingDynamicLinkData pendingDynamicLinkData) {
+                        // Get deep link from result (may be null if no link is found)
+                        Uri deepLink = null;
+                        if (pendingDynamicLinkData != null) {
+                            deepLink = pendingDynamicLinkData.getLink();
+                        }
+
+                        // [START_EXCLUDE]
+                        if (deepLink != null) {
+                            Log.i(TAG, "#### 2nd #### " + deepLink.toString());
+                            String restaurantId = deepLink.getQueryParameter("restaurantId");
+
+                            Intent i = getIntent();
+                            i.setClass(getApplicationContext(), RestaurantDetailActivity.class);
+                            i.putExtra(RestaurantDetailActivity.KEY_RESTAURANT_ID, restaurantId);
+
+                            Bundle bundle = new Bundle();
+                            bundle.putString("full_text", "Get Restaurant Detail");
+                            mFirebaseAnalytics.logEvent("restaurant_detail_deep_link", bundle);
+
+                            startActivity(i);
+                            overridePendingTransition(R.anim.slide_in_from_right, R.anim.slide_out_to_left);
+
+                        } else {
+                            Log.i(TAG, "getDynamicLink: no link found");
+                        }
+                        // [END_EXCLUDE]
+                    }
+                })
+                .addOnFailureListener(this, new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.w(TAG, "getDynamicLink:onFailure", e);
+                    }
+                });
+        // [END get_deep_link]
 
     }
 
@@ -381,4 +440,62 @@ public class MainActivity extends AppCompatActivity implements
     private void onCrashClicked() {
         Crashlytics.getInstance().crash();
     }
+
+    /**
+     * Build a Firebase Dynamic Link.
+     * https://firebase.google.com/docs/dynamic-links/android/create#create-a-dynamic-link-from-parameters
+     *
+     * @param deepLink the deep link your app will open. This link must be a valid URL and use the
+     *                 HTTP or HTTPS scheme.
+     * @param minVersion the {@code versionCode} of the minimum version of your app that can open
+     *                   the deep link. If the installed app is an older version, the user is taken
+     *                   to the Play store to upgrade the app. Pass 0 if you do not
+     *                   require a minimum version.
+     * @return a {@link Uri} representing a properly formed deep link.
+     */
+    @VisibleForTesting
+    public Uri buildDeepLink(@NonNull Uri deepLink, int minVersion) {
+        String domain = getString(R.string.dynamic_links_domain);
+
+        // Set dynamic link parameters:
+        //  * Domain (required)
+        //  * Android Parameters (required)
+        //  * Deep link
+        // [START build_dynamic_link]
+        DynamicLink.Builder builder = FirebaseDynamicLinks.getInstance()
+                .createDynamicLink()
+                .setDynamicLinkDomain(domain)
+                .setAndroidParameters(new DynamicLink.AndroidParameters.Builder()
+                        .setMinimumVersion(minVersion)
+                        .build())
+                .setLink(deepLink);
+
+        // Build the dynamic link
+        DynamicLink link = builder.buildDynamicLink();
+        // [END build_dynamic_link]
+
+        // Return the dynamic link as a URI
+        return link.getUri();
+    }
+
+    private void shareDeepLink(String deepLink) {
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setType("text/plain");
+        intent.putExtra(Intent.EXTRA_SUBJECT, "Firebase Deep Link");
+        intent.putExtra(Intent.EXTRA_TEXT,deepLink);
+
+        startActivity(intent);
+    }
+
+    private void validateAppCode() {
+        String domain = getString(R.string.dynamic_links_domain);
+        if (domain.contains("YOUR_APP")) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Invalid Configuration")
+                    .setMessage("Please set your Dynamic Links domain in app/build.gradle")
+                    .setPositiveButton(android.R.string.ok, null)
+                    .create().show();
+        }
+    }
+
 }
