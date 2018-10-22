@@ -176,20 +176,24 @@ public class MainActivity extends AppCompatActivity implements
                         if (deepLink != null) {
                             Log.i(TAG, "#### 2nd #### " + deepLink.toString());
                             String restaurantId = deepLink.getQueryParameter("restaurantId");
+                            if (restaurantId != null) {
 
-                            Intent i = getIntent();
-                            i.setClass(getApplicationContext(), RestaurantDetailActivity.class);
-                            i.putExtra(RestaurantDetailActivity.KEY_RESTAURANT_ID, restaurantId);
+                                Intent i = getIntent();
+                                i.setClass(getApplicationContext(), RestaurantDetailActivity.class);
+                                i.putExtra(RestaurantDetailActivity.KEY_RESTAURANT_ID, restaurantId);
 
-                            Bundle bundle = new Bundle();
-                            bundle.putString("full_text", "Get Restaurant Detail");
-                            mFirebaseAnalytics.logEvent("restaurant_detail_deep_link", bundle);
+                                Bundle bundle = new Bundle();
+                                bundle.putString("full_text", "Get Restaurant Detail");
+                                mFirebaseAnalytics.logEvent("restaurant_detail_deep_link", bundle);
 
-                            startActivity(i);
-                            overridePendingTransition(R.anim.slide_in_from_right, R.anim.slide_out_to_left);
+                                startActivity(i);
+                                overridePendingTransition(R.anim.slide_in_from_right, R.anim.slide_out_to_left);
+                            } else {
+                                Log.i(TAG, "#### restaurantId: no id found in the link");
+                            }
 
                         } else {
-                            Log.i(TAG, "getDynamicLink: no link found");
+                            Log.i(TAG, "#### getDynamicLink: no link found");
                         }
                         // [END_EXCLUDE]
                     }
@@ -273,8 +277,8 @@ public class MainActivity extends AppCompatActivity implements
                     }
                 });
 
-        log("##### " + SHOW_CRASH_EXPERIMENT_KEY + ": " + mFirebaseRemoteConfig.getBoolean(SHOW_CRASH_EXPERIMENT_KEY));
-        Log.i(TAG, "##### " + SHOW_CRASH_EXPERIMENT_KEY + ": " + mFirebaseRemoteConfig.getBoolean(SHOW_CRASH_EXPERIMENT_KEY));
+        log("### " + SHOW_CRASH_EXPERIMENT_KEY + ": " + mFirebaseRemoteConfig.getBoolean(SHOW_CRASH_EXPERIMENT_KEY));
+        Log.i(TAG, "### " + SHOW_CRASH_EXPERIMENT_KEY + ": " + mFirebaseRemoteConfig.getBoolean(SHOW_CRASH_EXPERIMENT_KEY));
         crashExperiment = mFirebaseRemoteConfig.getBoolean(SHOW_CRASH_EXPERIMENT_KEY);
         if(!crashExperiment)
             getMenuInflater().inflate(R.menu.menu_main, menu);
