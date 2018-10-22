@@ -156,11 +156,14 @@ public class MainActivity extends AppCompatActivity implements
         mFilterDialog = new FilterDialogFragment();
 
 
+        Log.i(TAG, "#### Intent #### " + getIntent().toString());
+
         // Build Dynamic Link
         validateAppCode();
         final Uri deepLink = buildDeepLink(Uri.parse(DEEP_LINK_URL), 0);
-        Log.i(TAG, "#### 1st #### " + deepLink.toString());
+        Log.i(TAG, "#### Generated #### " + deepLink.toString());
 
+        // Process a Dynamic Link
         FirebaseDynamicLinks.getInstance()
                 .getDynamicLink(getIntent())
                 .addOnSuccessListener(this, new OnSuccessListener<PendingDynamicLinkData>() {
@@ -174,7 +177,7 @@ public class MainActivity extends AppCompatActivity implements
 
                         // [START_EXCLUDE]
                         if (deepLink != null) {
-                            Log.i(TAG, "#### 2nd #### " + deepLink.toString());
+                            Log.i(TAG, "#### Deep Link #### " + deepLink.toString());
                             String restaurantId = deepLink.getQueryParameter("restaurantId");
                             if (restaurantId != null) {
 
