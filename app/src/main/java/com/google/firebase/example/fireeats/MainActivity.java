@@ -29,7 +29,9 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.analytics.FirebaseAnalytics;
+import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.dynamiclinks.DynamicLink;
 import com.google.firebase.dynamiclinks.FirebaseDynamicLinks;
 import com.google.firebase.dynamiclinks.PendingDynamicLinkData;
@@ -100,9 +102,11 @@ public class MainActivity extends AppCompatActivity implements
 
     private static final String DEEP_LINK_URL = "https://example.com/deeplinks";
 
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        mAuth = FirebaseAuth.getInstance();
 
         mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
@@ -148,6 +152,26 @@ public class MainActivity extends AppCompatActivity implements
             }
         };
 
+        mAuth.signInAnonymously()
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // Sign in success, update UI with the signed-in user's information
+                            Log.d(TAG, "signInAnonymously:success");
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            //updateUI(user);
+                        } else {
+                            // If sign in fails, display a message to the user.
+                            Log.w(TAG, "signInAnonymously:failure", task.getException());
+                            //Toast.makeText(AnonymousAuthActivity.this, "Authentication failed.",
+                                    //Toast.LENGTH_SHORT).show();
+                            //updateUI(null);
+                        }
+
+                        // ...
+                    }
+                });
 
         mRestaurantsRecycler.setLayoutManager(new LinearLayoutManager(this));
         mRestaurantsRecycler.setAdapter(mAdapter);
@@ -312,6 +336,10 @@ public class MainActivity extends AppCompatActivity implements
                 IllegalArgumentException iae = new IllegalArgumentException("Test Crash");
                 Crashlytics.logException(iae);
                 throw iae;
+            case R.id.ml:
+                Intent intent = new Intent(this,ML.class);
+                this.startActivity(intent);
+                break;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -402,6 +430,7 @@ public class MainActivity extends AppCompatActivity implements
 
     private void startSignIn() {
         // Sign in with FirebaseUI
+        /*
         Intent intent = AuthUI.getInstance().createSignInIntentBuilder()
                 .setAvailableProviders(Collections.singletonList(
                         new AuthUI.IdpConfig.Builder(AuthUI.EMAIL_PROVIDER).build()))
@@ -409,6 +438,12 @@ public class MainActivity extends AppCompatActivity implements
                 .build();
 
         startActivityForResult(intent, RC_SIGN_IN);
+        */
+
+        // Check if user is signed in (non-null) and update UI accordingly.
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        //updateUI(currentUser);
+
         mViewModel.setIsSigningIn(true);
     }
 
